@@ -18,4 +18,19 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        // Long-lived vendor chunks: app deploys don't invalidate library caches.
+        manualChunks: {
+          "vendor-react": ["react", "react-dom", "react-router-dom", "@tanstack/react-query"],
+          "vendor-charts": ["recharts"],
+          "vendor-supabase": ["@supabase/supabase-js"],
+          "vendor-office": ["xlsx", "xlsx-js-style", "docx", "jszip", "mammoth", "file-saver"],
+          "vendor-pdf": ["jspdf", "jspdf-autotable", "html2canvas"],
+        },
+      },
+    },
+  },
 }));

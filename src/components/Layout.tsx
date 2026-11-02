@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Bell, ChevronRight, ChevronLeft, Menu,
   History, FolderKanban, ClipboardList, Users, FileBarChart,
   CalendarDays, Search, Plus, Building2, X, ArrowRight,
-  Sparkles, BookOpen, Construction, FileArchive, GanttChartSquare, Printer,
+  Sparkles, BookOpen, Construction, FileArchive, GanttChartSquare, Printer, Radar,
 } from 'lucide-react';
 import { useProjects } from '@/hooks/useProjects';
 import { useReminders } from '@/hooks/useReminders';
@@ -17,9 +17,11 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import AnimatedBuildingsLogo from '@/components/AnimatedBuildingsLogo';
+import ThemeToggle from '@/components/ThemeToggle';
 
 const NAV_ITEMS = [
   { to: '/', label: 'ניהול ההתחדשות העירונית', icon: LayoutDashboard },
+  { to: '/command-center', label: 'מרכז פיקוד חכם', icon: Radar },
   { to: '/projects', label: 'פרויקטים', icon: FolderKanban },
   { to: '/gantt-all', label: 'גאנט כולל', icon: GanttChartSquare },
   { to: '/building-plan', label: 'תכנית בניינית 603-0972307', icon: FileArchive },
@@ -35,6 +37,7 @@ const NAV_ITEMS = [
 
 const ROUTE_LABELS: Record<string, string> = {
   '/': 'ניהול ההתחדשות העירונית',
+  '/command-center': 'מרכז פיקוד חכם',
   '/projects': 'פרויקטים',
   '/gantt-all': 'גאנט כולל',
   '/building-plan': 'תכנית בניינית 603-0972307',
@@ -374,6 +377,8 @@ export default function Layout({ children }: { children: ReactNode }) {
             <Printer className="h-4 w-4" />
             <span className="hidden md:inline">הדפס</span>
           </Button>
+
+          <ThemeToggle />
 
           {/* Quick Create */}
           <DropdownMenu>

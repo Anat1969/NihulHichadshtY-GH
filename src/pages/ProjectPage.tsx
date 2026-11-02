@@ -35,6 +35,7 @@ import IdentityAssetsSection from '@/components/IdentityAssetsSection';
 import ProjectReminders from '@/components/ProjectReminders';
 import ProjectAddressEditor from '@/components/ProjectAddressEditor';
 import { useProjects, ProjectWithAddresses } from '@/hooks/useProjects';
+import ProjectHealthCard from '@/components/intelligence/ProjectHealthCard';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function ProjectPage() {
@@ -201,7 +202,7 @@ export default function ProjectPage() {
         <div className="sticky top-[60px] z-20 bg-background/95 backdrop-blur-xl -mx-4 md:-mx-8 px-4 md:px-8 border-b border-border/50 transition-all duration-200">
           <div className="max-w-[1320px] mx-auto">
             {/* Always-visible top bar: name + actions + collapse toggle */}
-            <div className="flex items-center justify-between gap-3 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 py-3">
               {/* Title */}
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
@@ -221,7 +222,7 @@ export default function ProjectPage() {
               </div>
 
               {/* Actions */}
-              <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+              <div className="flex items-center gap-1.5 flex-wrap justify-end max-w-full">
                 <Button
                   size="sm"
                   onClick={() => window.dispatchEvent(new Event('open-yohan-ai'))}
@@ -388,6 +389,9 @@ export default function ProjectPage() {
             )}
           </div>
         </div>
+
+        {/* ═══ Health & forecast (intelligence engine) ═══ */}
+        <ProjectHealthCard project={dbProject} />
 
         {/* ═══ Ongoing Management ═══ */}
         <OngoingManagementCard project={dbProject} onUpdate={handleUpdateProject} />

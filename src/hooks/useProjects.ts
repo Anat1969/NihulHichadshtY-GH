@@ -16,13 +16,13 @@ export function useProjects() {
       .select('*')
       .order('order_index', { ascending: true });
 
-    if (pErr) { console.error('Error fetching projects:', pErr); return; }
+    if (pErr) { console.error('Error fetching projects:', pErr); setLoading(false); return; }
 
     const { data: addressesData, error: aErr } = await supabase
       .from('project_addresses')
       .select('*');
 
-    if (aErr) { console.error('Error fetching addresses:', aErr); return; }
+    if (aErr) { console.error('Error fetching addresses:', aErr); setLoading(false); return; }
 
     const merged: ProjectWithAddresses[] = (projectsData || []).map(p => ({
       ...p,

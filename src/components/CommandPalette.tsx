@@ -9,7 +9,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import { FolderKanban, ClipboardList, FileBarChart, LayoutDashboard, CalendarDays, Bell, Search } from 'lucide-react';
+import { FolderKanban, ClipboardList, FileBarChart, LayoutDashboard, CalendarDays, Bell, Search, Radar } from 'lucide-react';
 
 export default function CommandPalette() {
   const [open, setOpen] = useState(false);
@@ -39,6 +39,7 @@ export default function CommandPalette() {
         <CommandEmpty>לא נמצאו תוצאות</CommandEmpty>
         <CommandGroup heading="ניווט מהיר">
           <CommandItem onSelect={() => go('/')}><LayoutDashboard className="ml-2 h-4 w-4" />דשבורד</CommandItem>
+          <CommandItem onSelect={() => go('/command-center')}><Radar className="ml-2 h-4 w-4" />מרכז פיקוד חכם</CommandItem>
           <CommandItem onSelect={() => go('/projects')}><FolderKanban className="ml-2 h-4 w-4" />פרויקטים</CommandItem>
           <CommandItem onSelect={() => go('/tasks')}><ClipboardList className="ml-2 h-4 w-4" />משימות</CommandItem>
           <CommandItem onSelect={() => go('/meetings')}><CalendarDays className="ml-2 h-4 w-4" />ישיבות</CommandItem>

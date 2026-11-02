@@ -18,6 +18,7 @@ import Layout from '@/components/Layout';
 import SystemSummaryDialog from '@/components/SystemSummaryDialog';
 import FormalDocumentEditor from '@/components/FormalDocumentEditor';
 import TamaDashboardCard from '@/components/TamaDashboardCard';
+import IntelligenceStrip from '@/components/intelligence/IntelligenceStrip';
 import ImportExcelDatesDialog from '@/components/ImportExcelDatesDialog';
 import type { MeetingDocumentDraft } from '@/lib/formalDocumentExport';
 
@@ -199,7 +200,7 @@ export default function Dashboard() {
             <h1 className="text-lg md:text-xl">ניהול ההתחדשות העירונית – אשדוד</h1>
             <p className="caption mt-1">מערכת חכמה לבקרה על פרויקטי פינוי־בינוי · {kpis.totalProjects} פרויקטים · {formatDate(new Date())}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setImportExcelOpen(true)} className="gap-1.5">
               <FileSpreadsheet className="h-4 w-4" />
               ייבוא תאריכים
@@ -241,6 +242,11 @@ export default function Dashboard() {
             <KpiCard icon={TrendingUp} label="מכפיל ממוצע" value={`×${kpis.avgMultiplier}`} accent />
             <KpiCard icon={Landmark} label="פוטנציאל צפוי מהיתרים" value={formatRevenue(kpis.totalRevenue)} accent subtitle="מחושב לפי 25,000 ₪ ליח״ד, בכפוף לאישור היתרים" />
           </div>
+        </section>
+
+        {/* ═══ Smart Command Center teaser ═══ */}
+        <section>
+          <IntelligenceStrip />
         </section>
 
         {/* ═══ Tama Sites Summary ═══ */}

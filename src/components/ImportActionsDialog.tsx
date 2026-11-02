@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useProjects } from '@/hooks/useProjects';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesUpdate } from '@/integrations/supabase/types';
 import { useToast } from '@/hooks/use-toast';
 import { extractFromFile, type ExtractResult } from '@/lib/fileExtractors';
 import { cn } from '@/lib/utils';
@@ -187,7 +188,7 @@ export default function ImportActionsDialog({
       let failed = false;
       if (row.doUpdateProject) {
         try {
-          const updates: Record<string, any> = {};
+          const updates: TablesUpdate<'projects'> = {};
           if (row.blocker)     updates.main_blocker = row.blocker;
           if (row.nextAction)  updates.next_action = row.nextAction;
           if (row.owner)       updates.next_action_owner = row.owner;

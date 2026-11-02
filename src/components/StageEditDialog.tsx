@@ -74,6 +74,7 @@ export default function StageEditDialog({ open, onOpenChange, projectId, stageId
       return;
     }
     toast({ title: 'השלב נשמר' });
+    window.dispatchEvent(new CustomEvent('stage-dates-changed', { detail: { projectId } }));
     onSaved?.();
     onOpenChange(false);
   };

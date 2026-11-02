@@ -309,7 +309,7 @@
 
   /* ── Page Header ── */
   .page-header {
-    @apply flex items-center justify-between;
+    @apply flex flex-wrap items-center justify-between gap-3;
     animation: staggerFadeIn 0.4s ease-out both;
   }
   .page-header h1 {

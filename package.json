@@ -1,7 +1,7 @@
 {
-  "name": "vite_react_shadcn_ts",
+  "name": "nihul-hitchadshut-ironit",
   "private": true,
-  "version": "0.0.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,7 +10,10 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit",
+    "verify": "npm run typecheck && npm test && npm run build",
+    "screenshots": "node scripts/screenshot.mjs screenshots"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^16.6.0",

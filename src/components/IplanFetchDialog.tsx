@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Globe, Sparkles, CheckCircle2, ExternalLink, Building2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesUpdate } from '@/integrations/supabase/types';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -82,7 +83,7 @@ export default function IplanFetchDialog({ open, onOpenChange, projectId, onAppl
     setStep('applying');
     try {
       const merged: any = { ...data, ...edited };
-      const updates: Record<string, any> = {};
+      const updates: TablesUpdate<'projects'> = {};
       if (merged.plan_number) updates.plan_number = merged.plan_number;
       if (merged.project_name) updates.project_name = merged.project_name;
       if (merged.developer) updates.developer = merged.developer;

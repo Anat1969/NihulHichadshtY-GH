@@ -1,6 +1,8 @@
 # ניהול התחדשות עירונית – אשדוד
 
-A Hebrew RTL web app for managing Ashdod's pinui-binui (urban renewal) projects, from feasibility to occupancy. Originally built in Lovable (project 527ea9aa…), now developed here.
+A Hebrew RTL web app for managing Ashdod's pinui-binui (urban renewal) projects, from feasibility to occupancy. Imported once from a Lovable prototype; **this repo is now the only source of truth: never sync or push back to Lovable.**
+
+**Hosting:** Vercel (`vercel.json`: SPA rewrites, immutable asset caching, security headers). The build reads the Supabase publishable config from `.env`.
 
 **Stack:** Vite + React 18 + TypeScript + Tailwind + shadcn/ui · Supabase (Postgres + edge functions) · Recharts · Vitest.
 

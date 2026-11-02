@@ -16,7 +16,8 @@ import { Input } from '@/components/ui/input';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import AnimatedBuildingsLogo from '@/components/AnimatedBuildingsLogo';
+import ashdodLogo from '@/assets/ashdod-logo.png';
+import ashdodEmblem from '@/assets/ashdod-emblem.png';
 import ThemeToggle from '@/components/ThemeToggle';
 
 const NAV_ITEMS = [
@@ -187,15 +188,19 @@ export default function Layout({ children }: { children: ReactNode }) {
       >
         {/* Logo */}
         <div className={cn(
-          'flex items-center gap-3 h-[68px] px-5 border-b border-border/30 shrink-0',
+          'flex items-center gap-3 h-[68px] px-4 border-b border-border/30 shrink-0',
           collapsed && 'justify-center px-0'
         )}>
-          <AnimatedBuildingsLogo size={collapsed ? 32 : 38} />
-          {!collapsed && (
-            <div className="min-w-0">
-              <h1 className="text-[14px] font-extrabold leading-tight truncate text-foreground" style={{ letterSpacing: '-0.02em' }}>ניהול פינוי בינוי</h1>
-              <p className="text-[10px] text-muted-foreground/60 truncate font-medium">התחדשות עירונית</p>
-            </div>
+          {collapsed ? (
+            <img src={ashdodEmblem} alt="עיריית אשדוד" className="h-9 w-9 object-contain" />
+          ) : (
+            <>
+              <img src={ashdodLogo} alt="עיריית אשדוד" className="h-[52px] w-auto object-contain shrink-0 dark:brightness-110" />
+              <div className="min-w-0 border-r border-border/50 pr-3 whitespace-nowrap">
+                <h1 className="text-[14px] font-extrabold leading-tight text-foreground" style={{ letterSpacing: '-0.02em' }}>פינוי־בינוי</h1>
+                <p className="text-[11px] text-muted-foreground/80 font-medium">התחדשות עירונית</p>
+              </div>
+            </>
           )}
         </div>
 

@@ -1,0 +1,2 @@
+CREATE POLICY "Allow authenticated upload to project-assets" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'project-assets');
+CREATE POLICY "Allow authenticated update project-assets" ON storage.objects FOR UPDATE TO authenticated USING (bucket_id = 'project-assets');

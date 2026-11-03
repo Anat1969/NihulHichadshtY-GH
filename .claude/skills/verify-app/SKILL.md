@@ -17,10 +17,11 @@ npm run screenshots  # writes screenshots/*.png (git-ignored)
 - Aborts all other third-party requests (fonts and so on), so it runs offline and in sandboxes.
 - Routes: `/`, `/command-center`, `/project/demo-2`, each × light/dark × 1440px/390px.
 - Exits non-zero on any uncaught page error.
-- Playwright is resolved via `require('playwright')`. If it is installed globally, run with `NODE_PATH=$(npm root -g)`.
+- Playwright is resolved from `node_modules`, falling back to the global install (`npm root -g`) automatically.
 
 ## Checklist after viewing the PNGs
 - No horizontal scroll at 390px (`document.documentElement.scrollWidth === 390`).
 - Dark mode: no white-on-white or black-on-black text, and cards are distinguishable.
-- Hebrew reads right-to-left, numbers use `tabular-nums`, and dates are `DD-MM-YYYY`.
+- Hebrew reads right-to-left and dates are `DD-MM-YYYY`. `tabular-nums` only in tables and axes; hero numbers use proportional figures (see the dataviz rules in `rtl-design-system`).
+- Bundle: `grep modulepreload dist/index.html` should list only the vendor-react/supabase/charts chunks. Heavy libs (docx, jspdf, xlsx) must load lazily, on demand.
 - To add a route, add it to `ROUTES` and add any tables it reads to the fixtures.

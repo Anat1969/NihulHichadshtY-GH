@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 
@@ -6,84 +7,82 @@ export type DbProject = Tables<'projects'>;
 export type DbProjectAddress = Tables<'project_addresses'>;
 export type ProjectWithAddresses = DbProject & { addresses: DbProjectAddress[] };
 
+export const PROJECTS_KEY = ['projects'] as const;
+
+async function fetchProjectsWithAddresses(): Promise<ProjectWithAddresses[]> {
+  const [{ data: projectsData, error: pErr }, { data: addressesData, error: aErr }] = await Promise.all([
+    supabase.from('projects').select('*').order('order_index', { ascending: true }),
+    supabase.from('project_addresses').select('*'),
+  ]);
+  if (pErr) throw pErr;
+  if (aErr) throw aErr;
+  const byProject = new Map<string, DbProjectAddress[]>();
+  for (const a of addressesData || []) byProject.set(a.project_id, [...(byProject.get(a.project_id) || []), a]);
+  return (projectsData || []).map(p => ({ ...p, addresses: byProject.get(p.id) || [] }));
+}
+
+/**
+ * Projects (with addresses) from Supabase, shared through the React Query
+ * cache: every component calling this hook reuses one request, and mutations
+ * invalidate the cache so all screens refresh together.
+ */
 export function useProjects() {
-  const [projects, setProjects] = useState<ProjectWithAddresses[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: projects = [], isLoading: loading } = useQuery({
+    queryKey: PROJECTS_KEY,
+    queryFn: fetchProjectsWithAddresses,
+  });
 
-  const fetchProjects = useCallback(async () => {
-    const { data: projectsData, error: pErr } = await supabase
-      .from('projects')
-      .select('*')
-      .order('order_index', { ascending: true });
+  const fetchProjects = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: PROJECTS_KEY }),
+    [queryClient],
+  );
 
-    if (pErr) { console.error('Error fetching projects:', pErr); setLoading(false); return; }
+  /** Runs a write; logs (or rethrows) its error, then refreshes the cache. */
+  const write = useCallback(
+    async <T,>(op: PromiseLike<{ data?: T; error: unknown }>, rethrow = false): Promise<T | null> => {
+      const { data, error } = await op;
+      if (error) {
+        console.error('Project write failed:', error);
+        if (rethrow) throw error;
+        return null;
+      }
+      await fetchProjects();
+      return (data ?? null) as T | null;
+    },
+    [fetchProjects],
+  );
 
-    const { data: addressesData, error: aErr } = await supabase
-      .from('project_addresses')
-      .select('*');
-
-    if (aErr) { console.error('Error fetching addresses:', aErr); setLoading(false); return; }
-
-    const merged: ProjectWithAddresses[] = (projectsData || []).map(p => ({
-      ...p,
-      addresses: (addressesData || []).filter(a => a.project_id === p.id),
-    }));
-
-    setProjects(merged);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { fetchProjects(); }, [fetchProjects]);
-
-  const addProject = useCallback(async (data: TablesInsert<'projects'>) => {
-    const { data: created, error } = await supabase
-      .from('projects')
-      .insert(data)
-      .select()
-      .single();
-    if (error) { console.error(error); return null; }
-    await fetchProjects();
-    return created;
-  }, [fetchProjects]);
-
-  const updateProject = useCallback(async (id: string, updates: TablesUpdate<'projects'>) => {
-    const { error } = await supabase.from('projects').update(updates).eq('id', id);
-    if (error) {
-      console.error('updateProject failed:', error);
-      throw error;
-    }
-    await fetchProjects();
-  }, [fetchProjects]);
-
-  const deleteProject = useCallback(async (id: string) => {
-    const { error } = await supabase.from('projects').delete().eq('id', id);
-    if (error) { console.error(error); return; }
-    await fetchProjects();
-  }, [fetchProjects]);
-
-  const addAddress = useCallback(async (data: TablesInsert<'project_addresses'>) => {
-    const { error } = await supabase.from('project_addresses').insert(data);
-    if (error) { console.error(error); return; }
-    await fetchProjects();
-  }, [fetchProjects]);
-
-  const updateAddress = useCallback(async (id: string, updates: TablesUpdate<'project_addresses'>) => {
-    const { error } = await supabase.from('project_addresses').update(updates).eq('id', id);
-    if (error) { console.error(error); return; }
-    await fetchProjects();
-  }, [fetchProjects]);
-
-  const deleteAddress = useCallback(async (id: string) => {
-    const { error } = await supabase.from('project_addresses').delete().eq('id', id);
-    if (error) { console.error(error); return; }
-    await fetchProjects();
-  }, [fetchProjects]);
-
+  const addProject = useCallback(
+    (data: TablesInsert<'projects'>) => write(supabase.from('projects').insert(data).select().single()),
+    [write],
+  );
+  const updateProject = useCallback(
+    async (id: string, updates: TablesUpdate<'projects'>) => {
+      await write(supabase.from('projects').update(updates).eq('id', id), true);
+    },
+    [write],
+  );
+  const deleteProject = useCallback(
+    async (id: string) => { await write(supabase.from('projects').delete().eq('id', id)); },
+    [write],
+  );
+  const addAddress = useCallback(
+    async (data: TablesInsert<'project_addresses'>) => { await write(supabase.from('project_addresses').insert(data)); },
+    [write],
+  );
+  const updateAddress = useCallback(
+    async (id: string, updates: TablesUpdate<'project_addresses'>) => {
+      await write(supabase.from('project_addresses').update(updates).eq('id', id));
+    },
+    [write],
+  );
+  const deleteAddress = useCallback(
+    async (id: string) => { await write(supabase.from('project_addresses').delete().eq('id', id)); },
+    [write],
+  );
   const reorderProjects = useCallback(async (orderedIds: string[]) => {
-    const updates = orderedIds.map((id, i) =>
-      supabase.from('projects').update({ order_index: i }).eq('id', id)
-    );
-    await Promise.all(updates);
+    await Promise.all(orderedIds.map((id, i) => supabase.from('projects').update({ order_index: i }).eq('id', id)));
     await fetchProjects();
   }, [fetchProjects]);
 

@@ -16,8 +16,8 @@ import { Input } from '@/components/ui/input';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import ashdodLogo from '@/assets/ashdod-logo.png';
-import ashdodEmblem from '@/assets/ashdod-emblem.png';
+import ashdodLogo from '@/assets/ashdod-logo.webp';
+import ashdodEmblem from '@/assets/ashdod-emblem.webp';
 import ThemeToggle from '@/components/ThemeToggle';
 
 const NAV_ITEMS = [

@@ -2,13 +2,13 @@
 // Visual smoke test: serves the production build, mocks Supabase with fictional
 // fixtures, and screenshots key routes in light + dark mode.
 // Usage: npm run build && node scripts/screenshot.mjs [outDir]
-import { spawn } from 'node:child_process';
+import { spawn, execSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import * as fx from './fixtures/mock-data.mjs';
 
 // Resolve playwright from node_modules, falling back to the global install.
 const require = createRequire(import.meta.url);
-import { execSync } from 'node:child_process';
 function loadPlaywright() {
   try { return require('playwright'); } catch {
     const globalRoot = execSync('npm root -g').toString().trim();
@@ -16,7 +16,6 @@ function loadPlaywright() {
   }
 }
 const { chromium } = loadPlaywright();
-import * as fx from './fixtures/mock-data.mjs';
 
 const OUT = process.argv[2] || 'screenshots';
 const PORT = 4179;

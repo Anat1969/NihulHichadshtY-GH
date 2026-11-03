@@ -7,6 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { useQueryClient } from '@tanstack/react-query';
+import { STAGE_DATES_KEY } from '@/hooks/useStageDates';
 
 type StageStatus = 'not_started' | 'in_progress' | 'completed' | 'blocked';
 
@@ -28,6 +30,7 @@ interface Props {
 
 export default function StageEditDialog({ open, onOpenChange, projectId, stageId, stageName, onSaved }: Props) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [status, setStatus] = useState<StageStatus>('not_started');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
@@ -74,7 +77,7 @@ export default function StageEditDialog({ open, onOpenChange, projectId, stageId
       return;
     }
     toast({ title: 'השלב נשמר' });
-    window.dispatchEvent(new CustomEvent('stage-dates-changed', { detail: { projectId } }));
+    queryClient.invalidateQueries({ queryKey: STAGE_DATES_KEY });
     onSaved?.();
     onOpenChange(false);
   };

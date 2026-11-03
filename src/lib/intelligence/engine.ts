@@ -7,6 +7,7 @@
  * is fully unit-testable. See `engine.test.ts`.
  */
 import { STAGES, PHASE_LABELS, type StageId } from '@/types/project';
+import { addDays, differenceInCalendarDays, isValid, parseISO } from 'date-fns';
 import { formatDate } from '@/lib/dateUtils';
 
 // ───────────────────────── Input shapes (decoupled from DB types) ─────────────────────────
@@ -48,7 +49,7 @@ export interface IntelStageDate {
  * Typical duration (days) of each stage in an Israeli pinui-binui process.
  * These are planning heuristics used for forecasting, not statutory deadlines.
  */
-export const STAGE_BENCHMARK_DAYS: Record<StageId, number> = {
+const STAGE_BENCHMARK_DAYS: Record<StageId, number> = {
   pre_feasibility: 90,
   resident_agreements: 240,
   resident_committee: 60,
@@ -78,17 +79,17 @@ export const STAGE_BENCHMARK_DAYS: Record<StageId, number> = {
 /** Approximate municipal value per planned unit used by the dashboard (₪). */
 export const VALUE_PER_UNIT = 25_000;
 
-const DAY = 86_400_000;
-
 export type Grade = 'A' | 'B' | 'C' | 'D';
 export type Severity = 'critical' | 'high' | 'medium' | 'low';
 
-export const GRADE_META: Record<Grade, { label: string; tone: 'green' | 'blue' | 'orange' | 'red' }> = {
-  A: { label: 'מצוין', tone: 'green' },
-  B: { label: 'תקין', tone: 'blue' },
-  C: { label: 'דורש תשומת לב', tone: 'orange' },
-  D: { label: 'קריטי', tone: 'red' },
+export const GRADE_META: Record<Grade, { label: string }> = {
+  A: { label: 'מצוין' },
+  B: { label: 'תקין' },
+  C: { label: 'דורש תשומת לב' },
+  D: { label: 'קריטי' },
 };
+
+export const GRADES = Object.keys(GRADE_META) as Grade[];
 
 export const SEVERITY_LABELS: Record<Severity, string> = {
   critical: 'קריטי',
@@ -119,33 +120,28 @@ export function normalizeStatus(raw: string | null | undefined): MgmtStatus {
   return 'unknown';
 }
 
-export function isStageId(v: string | null | undefined): v is StageId {
-  return !!v && STAGES.some(s => s.id === v);
+const STAGE_BY_ID = new Map<string, (typeof STAGES)[number]>(STAGES.map(s => [s.id, s]));
+
+function isStageId(v: string | null | undefined): v is StageId {
+  return !!v && STAGE_BY_ID.has(v);
 }
 
 export function stageOf(p: Pick<IntelProject, 'main_stage'>): StageId {
   return isStageId(p.main_stage) ? p.main_stage : 'forum1_harmonika';
 }
 
-export function phaseOf(stage: StageId): string {
-  return STAGES.find(s => s.id === stage)?.phase ?? 'C';
+function phaseOf(stage: StageId): string {
+  return STAGE_BY_ID.get(stage)?.phase ?? 'C';
 }
 
-/** Local calendar day (midnight) — all comparisons are day-granular. */
-function startOfDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-}
+/** Whole calendar days from a to b (local time; day-granular). */
+const daysBetween = (a: Date, b: Date) => differenceInCalendarDays(b, a);
 
-function daysBetween(a: Date, b: Date): number {
-  return Math.round((startOfDay(b).getTime() - startOfDay(a).getTime()) / DAY);
-}
-
-/** Parses 'YYYY-MM-DD' as a local calendar day (not UTC); other ISO strings normally. */
+/** parseISO reads 'YYYY-MM-DD' as local midnight (not UTC). */
 function parseDate(s: string | null | undefined): Date | null {
   if (!s) return null;
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
-  const d = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(s);
-  return isNaN(d.getTime()) ? null : d;
+  const d = parseISO(s);
+  return isValid(d) ? d : null;
 }
 
 function clamp(n: number, lo: number, hi: number) {
@@ -254,6 +250,7 @@ export function computeHealth(
   const stage = stageOf(p);
   let daysInStage: number | null = null;
   let stageOverrunRatio: number | null = null;
+  let overrunImpact = 0;
   const sd = (opts.stageDates || []).find(d => d.project_id === p.id && d.stage_id === stage);
   const start = parseDate(sd?.actual_start);
   if (start && !sd?.actual_end) {
@@ -261,12 +258,12 @@ export function computeHealth(
     const bench = STAGE_BENCHMARK_DAYS[stage];
     if (bench > 0) {
       stageOverrunRatio = Math.round((daysInStage / bench) * 100) / 100;
-      const impact = stageOverrunRatio > 2 ? 15 : stageOverrunRatio > 1.5 ? 10 : stageOverrunRatio > 1.2 ? 4 : 0;
-      add('stage_overrun', 'חריגה משך שלב', `${daysInStage} ימים בשלב (נורמה ~${bench})`, impact, 'לבחון מה מעכב את סגירת השלב ולעדכן את תכנית הזמנים');
+      overrunImpact = stageOverrunRatio > 2 ? 15 : stageOverrunRatio > 1.5 ? 10 : stageOverrunRatio > 1.2 ? 4 : 0;
+      add('stage_overrun', 'חריגה משך שלב', `${daysInStage} ימים בשלב (נורמה ~${bench})`, overrunImpact, 'לבחון מה מעכב את סגירת השלב ולעדכן את תכנית הזמנים');
     }
   }
   const plannedEnd = parseDate(sd?.planned_end);
-  if (plannedEnd && !sd?.actual_end && daysBetween(plannedEnd, today) > 0 && !factors.some(f => f.key === 'stage_overrun')) {
+  if (plannedEnd && !sd?.actual_end && daysBetween(plannedEnd, today) > 0 && !overrunImpact) {
     const late = daysBetween(plannedEnd, today);
     add('stage_late', 'שלב באיחור לתכנון', `סיום מתוכנן עבר לפני ${late} ימים`, clamp(4 + Math.floor(late / 30) * 2, 4, 12), 'לעדכן תאריך סיום מתוכנן או להאיץ');
   }
@@ -288,11 +285,11 @@ export interface PermitForecast {
   confidence: 'high' | 'medium' | 'low';
 }
 
-const PERMIT_ORDER = STAGES.find(s => s.id === 'permit')!.order;
+const PERMIT_ORDER = STAGE_BY_ID.get('permit')!.order;
 
 export function forecastPermit(p: IntelProject, health: ProjectHealth, today: Date = new Date()): PermitForecast {
   const stage = stageOf(p);
-  const order = STAGES.find(s => s.id === stage)!.order;
+  const order = STAGE_BY_ID.get(stage)!.order;
   if (order >= PERMIT_ORDER) {
     return { projectId: p.id, reached: true, remainingStages: 0, expectedDays: 0, expectedDate: today, slowdown: 1, confidence: 'high' };
   }
@@ -301,13 +298,15 @@ export function forecastPermit(p: IntelProject, health: ProjectHealth, today: Da
   // Credit time already spent in the current stage.
   if (health.daysInStage) days -= Math.min(health.daysInStage, STAGE_BENCHMARK_DAYS[stage]);
 
-  let slowdown = 1;
-  for (const f of health.factors) {
-    if (f.key === 'blocker') slowdown += 0.35;
-    if (f.key === 'status') slowdown += f.impact >= 20 ? 0.5 : 0.25;
-    if (f.key === 'risk') slowdown += f.impact >= 18 ? 0.25 : 0.1;
-    if (f.key === 'stage_overrun') slowdown += 0.15;
-  }
+  // Slowdown is driven by the project's own signals, not by health-penalty values.
+  const STATUS_SLOWDOWN: Record<MgmtStatus, number> = { stuck: 0.5, on_hold: 0.25, active: 0, unknown: 0 };
+  const RISK_SLOWDOWN: Record<RiskLevel, number> = { high: 0.25, medium: 0.1, low: 0, none: 0 };
+  let slowdown = 1
+    + ((p.main_blocker || '').trim() ? 0.35 : 0)
+    + STATUS_SLOWDOWN[normalizeStatus(p.management_status)]
+    + RISK_SLOWDOWN[normalizeRisk(p.risk_level)]
+    + (health.factors.some(f => f.key === 'stage_overrun') ? 0.15 : 0);
+  slowdown = Math.round(slowdown * 100) / 100;
   const expectedDays = Math.round(Math.max(days, 0) * slowdown);
   const confidence: PermitForecast['confidence'] =
     remaining.length <= 4 && slowdown < 1.3 ? 'high' : remaining.length <= 10 && slowdown < 1.7 ? 'medium' : 'low';
@@ -316,8 +315,8 @@ export function forecastPermit(p: IntelProject, health: ProjectHealth, today: Da
     reached: false,
     remainingStages: remaining.length,
     expectedDays,
-    expectedDate: new Date(today.getTime() + expectedDays * DAY),
-    slowdown: Math.round(slowdown * 100) / 100,
+    expectedDate: addDays(today, expectedDays),
+    slowdown,
     confidence,
   };
 }
@@ -356,13 +355,30 @@ export interface HeatCell {
   projectIds: string[];
 }
 
+export type PipelineKey = 'reached' | 'within_1y' | 'y1_2' | 'y2_4' | 'y4_plus';
+
+export interface PipelineBucket {
+  key: PipelineKey;
+  label: string;
+  units: number;
+  projects: number;
+}
+
+export interface PortfolioRow {
+  project: IntelProject;
+  health: ProjectHealth;
+  forecast: PermitForecast;
+  quarter: string;
+  phase: string;
+}
+
 export interface PortfolioInsights {
   generatedAt: Date;
-  projects: Array<{ project: IntelProject; health: ProjectHealth; forecast: PermitForecast }>;
+  projects: PortfolioRow[];
   avgHealth: number;
   gradeCounts: Record<Grade, number>;
   totals: { projects: number; unitsIn: number; unitsOut: number; value: number; unitsAtRisk: number };
-  permitPipeline: Array<{ label: string; units: number; projects: number }>;
+  permitPipeline: PipelineBucket[];
   phaseFunnel: Array<{ phase: string; label: string; projects: number; units: number }>;
   heatmap: { quarters: string[]; phases: string[]; cells: HeatCell[] };
   actions: ActionItem[];
@@ -371,109 +387,123 @@ export interface PortfolioInsights {
 
 const SEVERITY_WEIGHT: Record<Severity, number> = { critical: 4, high: 3, medium: 2, low: 1 };
 
+/** Upper bounds (days) of the not-yet-permitted buckets, in order. */
+const PIPELINE_LIMITS: Array<{ key: PipelineKey; label: string; max: number }> = [
+  { key: 'within_1y', label: 'עד 12 חודשים', max: 365 },
+  { key: 'y1_2', label: '1–2 שנים', max: 730 },
+  { key: 'y2_4', label: '2–4 שנים', max: 1460 },
+  { key: 'y4_plus', label: '4+ שנים', max: Infinity },
+];
+
+const sumUnits = (rows: PortfolioRow[]) => rows.reduce((s, r) => s + (r.project.units_out || 0), 0);
+const avgScore = (rows: PortfolioRow[]) => (rows.length ? rows.reduce((s, r) => s + r.health.score, 0) / rows.length : 0);
+
+function groupBy<T>(items: T[], key: (t: T) => string): Map<string, T[]> {
+  const m = new Map<string, T[]>();
+  for (const it of items) {
+    const k = key(it);
+    const arr = m.get(k);
+    if (arr) arr.push(it); else m.set(k, [it]);
+  }
+  return m;
+}
+
 export function analyzePortfolio(
   projects: IntelProject[],
   opts: { today?: Date; tasks?: IntelTask[]; stageDates?: IntelStageDate[] } = {},
 ): PortfolioInsights {
   const today = opts.today ?? new Date();
-  const rows = projects.map(project => {
-    const health = computeHealth(project, { ...opts, today });
-    return { project, health, forecast: forecastPermit(project, health, today) };
+  // Index once so per-project health doesn't rescan every task / stage row.
+  const tasksByProject = groupBy(opts.tasks || [], t => t.project_id);
+  const stageDatesByProject = groupBy(opts.stageDates || [], d => d.project_id);
+
+  const rows: PortfolioRow[] = projects.map(project => {
+    const health = computeHealth(project, {
+      today,
+      tasks: tasksByProject.get(project.id),
+      stageDates: stageDatesByProject.get(project.id),
+    });
+    return {
+      project,
+      health,
+      forecast: forecastPermit(project, health, today),
+      quarter: (project.quarter || '').trim() || '—',
+      phase: phaseOf(stageOf(project)),
+    };
   });
 
-  const n = rows.length || 1;
-  const avgHealth = Math.round(rows.reduce((s, r) => s + r.health.score, 0) / n);
-  const gradeCounts: Record<Grade, number> = { A: 0, B: 0, C: 0, D: 0 };
+  const gradeCounts = Object.fromEntries(GRADES.map(g => [g, 0])) as Record<Grade, number>;
   rows.forEach(r => gradeCounts[r.health.grade]++);
 
   const unitsIn = projects.reduce((s, p) => s + (p.units_in || 0), 0);
-  const unitsOut = projects.reduce((s, p) => s + (p.units_out || 0), 0);
-  const unitsAtRisk = rows.filter(r => r.health.grade === 'D').reduce((s, r) => s + (r.project.units_out || 0), 0);
+  const unitsOut = sumUnits(rows);
+  const critical = rows.filter(r => r.health.grade === 'D');
+  const unitsAtRisk = sumUnits(critical);
 
-  // Permit pipeline buckets
-  const buckets = [
-    { label: 'היתר ומעלה', test: (f: PermitForecast) => f.reached },
-    { label: 'עד 12 חודשים', test: (f: PermitForecast) => !f.reached && f.expectedDays <= 365 },
-    { label: '1–2 שנים', test: (f: PermitForecast) => !f.reached && f.expectedDays > 365 && f.expectedDays <= 730 },
-    { label: '2–4 שנים', test: (f: PermitForecast) => !f.reached && f.expectedDays > 730 && f.expectedDays <= 1460 },
-    { label: '4+ שנים', test: (f: PermitForecast) => !f.reached && f.expectedDays > 1460 },
-  ];
-  const permitPipeline = buckets.map(b => {
-    const inB = rows.filter(r => b.test(r.forecast));
-    return { label: b.label, projects: inB.length, units: inB.reduce((s, r) => s + (r.project.units_out || 0), 0) };
-  });
+  // Permit pipeline: 'reached' first, then the first limit the forecast fits under.
+  const byBucket = groupBy(rows, r =>
+    r.forecast.reached ? 'reached' : PIPELINE_LIMITS.find(l => r.forecast.expectedDays <= l.max)!.key,
+  );
+  const permitPipeline: PipelineBucket[] = [{ key: 'reached' as PipelineKey, label: 'היתר ומעלה' }, ...PIPELINE_LIMITS]
+    .map(({ key, label }) => {
+      const inB = byBucket.get(key) || [];
+      return { key, label, projects: inB.length, units: sumUnits(inB) };
+    });
 
-  // Phase funnel
+  // Phase funnel + quarter × phase heatmap from one grouping pass.
   const phases = Object.keys(PHASE_LABELS);
+  const byPhase = groupBy(rows, r => r.phase);
   const phaseFunnel = phases.map(ph => {
-    const inPh = rows.filter(r => phaseOf(stageOf(r.project)) === ph);
-    return { phase: ph, label: PHASE_LABELS[ph], projects: inPh.length, units: inPh.reduce((s, r) => s + (r.project.units_out || 0), 0) };
+    const inPh = byPhase.get(ph) || [];
+    return { phase: ph, label: PHASE_LABELS[ph], projects: inPh.length, units: sumUnits(inPh) };
   });
-
-  // Heatmap quarter × phase
-  const quarters = Array.from(new Set(projects.map(p => (p.quarter || '').trim() || '—'))).sort((a, b) => a.localeCompare(b, 'he'));
-  const cells: HeatCell[] = [];
-  for (const q of quarters) {
-    for (const ph of phases) {
-      const inCell = rows.filter(r => ((r.project.quarter || '').trim() || '—') === q && phaseOf(stageOf(r.project)) === ph);
-      cells.push({
-        quarter: q,
-        phase: ph,
-        count: inCell.length,
-        avgHealth: inCell.length ? Math.round(inCell.reduce((s, r) => s + r.health.score, 0) / inCell.length) : 0,
-        projectIds: inCell.map(r => r.project.id),
-      });
-    }
-  }
+  const byQuarter = groupBy(rows, r => r.quarter);
+  const quarters = [...byQuarter.keys()].sort((a, b) => a.localeCompare(b, 'he'));
+  const cells: HeatCell[] = quarters.flatMap(q => {
+    const inQ = groupBy(byQuarter.get(q)!, r => r.phase);
+    return phases.map(ph => {
+      const inCell = inQ.get(ph) || [];
+      return { quarter: q, phase: ph, count: inCell.length, avgHealth: Math.round(avgScore(inCell)), projectIds: inCell.map(r => r.project.id) };
+    });
+  });
 
   // Action queue — the single most impactful factor per project, so one
   // project can't crowd out the list. Bigger and sicker projects float up.
-  const actions: ActionItem[] = [];
-  for (const r of rows) {
+  const actions: ActionItem[] = rows.flatMap(r => {
     const f = r.health.factors[0];
-    if (f) {
-      const unitsWeight = (1 + Math.log10(Math.max(r.project.units_out || 1, 1))) * (1 + (100 - r.health.score) / 100);
-      actions.push({
-        projectId: r.project.id,
-        projectName: r.project.project_name,
-        title: f.recommendation,
-        detail: `${f.label}: ${f.detail}`,
-        severity: f.severity,
-        priority: Math.round(SEVERITY_WEIGHT[f.severity] * f.impact * unitsWeight),
-        owner: r.project.next_action_owner,
-      });
-    }
-  }
+    if (!f) return [];
+    const weight = (1 + Math.log10(Math.max(r.project.units_out || 1, 1))) * (1 + (100 - r.health.score) / 100);
+    return [{
+      projectId: r.project.id,
+      projectName: r.project.project_name,
+      title: f.recommendation,
+      detail: `${f.label}: ${f.detail}`,
+      severity: f.severity,
+      priority: Math.round(SEVERITY_WEIGHT[f.severity] * f.impact * weight),
+      owner: r.project.next_action_owner,
+    }];
+  });
   actions.sort((a, b) => b.priority - a.priority);
 
   // Alerts / anomalies
   const alerts: Alert[] = [];
-  const blockerGroups = new Map<string, string[]>();
-  for (const p of projects) {
-    const b = (p.main_blocker || '').trim();
-    if (!b) continue;
-    const key = b.replace(/\s+/g, ' ').slice(0, 40);
-    blockerGroups.set(key, [...(blockerGroups.get(key) || []), p.id]);
-  }
-  for (const [b, ids] of blockerGroups) {
-    if (ids.length >= 2) {
-      alerts.push({ key: `systemic:${b}`, title: 'חסם מערכתי', detail: `"${b}" חוסם ${ids.length} פרויקטים במקביל — מומלץ טיפול רוחבי`, severity: ids.length >= 3 ? 'critical' : 'high', projectIds: ids });
+  const withBlocker = projects.filter(p => (p.main_blocker || '').trim());
+  for (const [b, group] of groupBy(withBlocker, p => p.main_blocker!.trim().replace(/\s+/g, ' ').slice(0, 40))) {
+    if (group.length >= 2) {
+      alerts.push({ key: `systemic:${b}`, title: 'חסם מערכתי', detail: `"${b}" חוסם ${group.length} פרויקטים במקביל — מומלץ טיפול רוחבי`, severity: group.length >= 3 ? 'critical' : 'high', projectIds: group.map(p => p.id) });
     }
   }
   for (const q of quarters) {
-    const inQ = rows.filter(r => ((r.project.quarter || '').trim() || '—') === q);
-    if (inQ.length >= 2) {
-      const avg = inQ.reduce((s, r) => s + r.health.score, 0) / inQ.length;
-      if (avg < 55) {
-        alerts.push({ key: `quarter:${q}`, title: `רובע ${q} בסיכון`, detail: `ציון בריאות ממוצע ${Math.round(avg)} ב-${inQ.length} פרויקטים`, severity: avg < 40 ? 'critical' : 'high', projectIds: inQ.map(r => r.project.id) });
-      }
+    const inQ = byQuarter.get(q)!;
+    const avg = avgScore(inQ);
+    if (inQ.length >= 2 && avg < 55) {
+      alerts.push({ key: `quarter:${q}`, title: `רובע ${q} בסיכון`, detail: `ציון בריאות ממוצע ${Math.round(avg)} ב-${inQ.length} פרויקטים`, severity: avg < 40 ? 'critical' : 'high', projectIds: inQ.map(r => r.project.id) });
     }
   }
   const stale = rows.filter(r => (r.health.daysSinceUpdate ?? 0) > 30);
   if (stale.length >= Math.max(3, Math.ceil(rows.length * 0.25))) {
     alerts.push({ key: 'stale', title: 'נתונים מתיישנים', detail: `${stale.length} פרויקטים לא עודכנו יותר מ-30 יום`, severity: 'medium', projectIds: stale.map(r => r.project.id) });
   }
-  const critical = rows.filter(r => r.health.grade === 'D');
   if (critical.length) {
     alerts.push({ key: 'critical', title: 'פרויקטים במצב קריטי', detail: `${critical.length} פרויקטים בציון מתחת ל-50 · ${unitsAtRisk.toLocaleString('he-IL')} יח"ד בסיכון`, severity: 'critical', projectIds: critical.map(r => r.project.id) });
   }
@@ -482,7 +512,7 @@ export function analyzePortfolio(
   return {
     generatedAt: today,
     projects: rows,
-    avgHealth: rows.length ? avgHealth : 0,
+    avgHealth: Math.round(avgScore(rows)),
     gradeCounts,
     totals: { projects: projects.length, unitsIn, unitsOut, value: unitsOut * VALUE_PER_UNIT, unitsAtRisk },
     permitPipeline,
@@ -503,7 +533,7 @@ export function buildDailyBrief(ins: PortfolioInsights): string {
   lines.push(`• ציון בריאות תיק: ${ins.avgHealth}/100 (${GRADE_META[gradeFor(ins.avgHealth)].label})`);
   lines.push(`• ${ins.totals.projects} פרויקטים · ${ins.totals.unitsIn.toLocaleString('he-IL')} יח"ד קיימות → ${ins.totals.unitsOut.toLocaleString('he-IL')} מתוכננות`);
   lines.push(`• מצוין ${ins.gradeCounts.A} · תקין ${ins.gradeCounts.B} · דורש תשומת לב ${ins.gradeCounts.C} · קריטי ${ins.gradeCounts.D}`);
-  const next12 = ins.permitPipeline.find(b => b.label === 'עד 12 חודשים');
+  const next12 = ins.permitPipeline.find(b => b.key === 'within_1y');
   if (next12) lines.push(`• צפי היתרים ב-12 החודשים הקרובים: ${next12.projects} פרויקטים / ${next12.units.toLocaleString('he-IL')} יח"ד`);
   if (ins.alerts.length) {
     lines.push('');

@@ -48,6 +48,11 @@
     --status-green: 100 65% 45%;        /* Ashdod green */
     --status-blue: 202 72% 48%;
 
+    /* Command Center hero gradient (brand blue → teal) and glows. */
+    --hero-from: 202 72% 22%;
+    --hero-via: 202 72% 34%;
+    --hero-to: 190 70% 38%;
+
     /* Ordinal ramp (brand blue), validated with dataviz validate_palette.js --ordinal.
        --pipe-1 = nearest / most mature bucket (strongest), --pipe-5 = furthest. */
     --pipe-1: 202 72% 24%;
@@ -325,6 +330,10 @@
   .page-header {
     @apply flex flex-wrap items-center justify-between gap-3;
     animation: staggerFadeIn 0.4s ease-out both;
+  }
+  /* Header action groups wrap on narrow screens (no horizontal scroll at 390px). */
+  .page-header > :last-child:not(:first-child) {
+    @apply flex-wrap;
   }
   .page-header h1 {
     @apply text-3xl font-extrabold text-foreground;

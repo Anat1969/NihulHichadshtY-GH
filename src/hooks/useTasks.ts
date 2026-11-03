@@ -1,23 +1,31 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 
 export type DbTask = Tables<'tasks'>;
 
+/** Prefix shared by all task queries, so one invalidation refreshes every view. */
+export const TASKS_KEY = ['tasks'] as const;
+
+/** Tasks (all, or one project's) via the shared React Query cache. */
 export function useTasks(projectId?: string) {
-  const [tasks, setTasks] = useState<DbTask[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: tasks = [], isLoading: loading } = useQuery({
+    queryKey: [...TASKS_KEY, projectId ?? 'all'],
+    queryFn: async () => {
+      let query = supabase.from('tasks').select('*').order('created_at', { ascending: false });
+      if (projectId) query = query.eq('project_id', projectId);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
-  const fetchTasks = useCallback(async () => {
-    let query = supabase.from('tasks').select('*').order('created_at', { ascending: false });
-    if (projectId) query = query.eq('project_id', projectId);
-    const { data, error } = await query;
-    if (error) { console.error('Error fetching tasks:', error); setLoading(false); return; }
-    setTasks(data || []);
-    setLoading(false);
-  }, [projectId]);
-
-  useEffect(() => { fetchTasks(); }, [fetchTasks]);
+  const fetchTasks = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: TASKS_KEY }),
+    [queryClient],
+  );
 
   const addTask = useCallback(async (data: TablesInsert<'tasks'>) => {
     const { data: created, error } = await supabase.from('tasks').insert(data).select().single();

@@ -10,6 +10,13 @@ description: Visual language for this Hebrew RTL app — HSL tokens on Ashdod co
 - Status scale: `--status-green | --status-blue | --status-yellow (orange) | --status-red`. Use as `hsl(var(--status-red) / .12)` for tinted backgrounds.
 - **Never** use raw hex in components. Use Tailwind token classes (`bg-card`, `text-muted-foreground`) or `hsl(var(--token))`.
 
+## Charts (follow the `dataviz` skill)
+- Ordered buckets use the ordinal ramp `--pipe-1..5` (brand blue, validated light + dark with `validate_palette.js --ordinal`). Never reuse status colours for non-status data.
+- Status colours (`--status-*`) only for good/warning/critical meaning, and always with a text label.
+- Text stays in text tokens (`text-foreground`/`muted`); colour lives on the mark. Direct-label values (don't rely on tooltips only), and add a legend to any colour-encoded chart.
+- Hero/stand-alone numbers use proportional figures; `tabular-nums` only in tables and axes.
+- Hero gradient: `--hero-from/via/to`.
+
 ## Theme
 - `next-themes` `ThemeProvider` (class strategy, storage key `nihul-theme`) wraps the app in `src/App.tsx`. The toggle is `src/components/ThemeToggle.tsx`, in the Layout header.
 - Every new surface must read well in both themes. Check with `npm run screenshots` (see the verify-app skill).

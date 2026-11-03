@@ -4,12 +4,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
-import { Loader2 } from "lucide-react";
+import PageLoader from "@/components/PageLoader";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppProvider } from "@/context/ProjectContext";
 import CommandPalette from "@/components/CommandPalette";
-import SmartAssistant from "@/components/SmartAssistant";
 import Index from "./pages/Index";
 const ProjectPage = lazy(() => import("./pages/ProjectPage"));
 const ProjectsPage = lazy(() => import("./pages/ProjectsPage"));
@@ -29,11 +28,10 @@ const GanttAllProjectsPage = lazy(() => import("./pages/GanttAllProjectsPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const CommandCenterPage = lazy(() => import("./pages/CommandCenterPage"));
 
-const PageFallback = () => (
-  <div className="min-h-screen flex items-center justify-center" aria-busy="true">
-    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-  </div>
-);
+// The Yohan assistant (and its PDF/DOCX export code) loads after first paint.
+const SmartAssistant = lazy(() => import("@/components/SmartAssistant"));
+
+const PageFallback = () => <PageLoader className="min-h-screen" />;
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 60_000, refetchOnWindowFocus: false, retry: 1 } },
@@ -48,7 +46,9 @@ const App = () => (
         <Sonner />
         <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, "") || undefined}>
           <CommandPalette />
-          <SmartAssistant />
+          <Suspense fallback={null}>
+            <SmartAssistant />
+          </Suspense>
           <ErrorBoundary>
           <Suspense fallback={<PageFallback />}>
           <Routes>

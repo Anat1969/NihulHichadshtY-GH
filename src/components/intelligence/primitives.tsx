@@ -1,37 +1,31 @@
 import { cn } from '@/lib/utils';
 import { GRADE_META, SEVERITY_LABELS, gradeFor, type Grade, type Severity } from '@/lib/intelligence/engine';
 
-const TONE_VAR: Record<string, string> = {
-  green: '--status-green',
-  blue: '--status-blue',
-  orange: '--status-yellow',
-  red: '--status-red',
-};
+const GRADE_VAR: Record<Grade, string> = { A: '--status-green', B: '--status-blue', C: '--status-yellow', D: '--status-red' };
+const SEVERITY_VAR: Record<Severity, string> = { critical: '--status-red', high: '--status-yellow', medium: '--status-blue', low: '--status-green' };
 
 export function gradeColor(grade: Grade, alpha = 1) {
-  return `hsl(var(${TONE_VAR[GRADE_META[grade].tone]}) / ${alpha})`;
+  return `hsl(var(${GRADE_VAR[grade]}) / ${alpha})`;
 }
 
 export function scoreColor(score: number, alpha = 1) {
   return gradeColor(gradeFor(score), alpha);
 }
 
-const SEVERITY_TONE: Record<Severity, string> = { critical: 'red', high: 'orange', medium: 'blue', low: 'green' };
-
 export function severityColor(sev: Severity, alpha = 1) {
-  return `hsl(var(${TONE_VAR[SEVERITY_TONE[sev]]}) / ${alpha})`;
+  return `hsl(var(${SEVERITY_VAR[sev]}) / ${alpha})`;
 }
 
 /** Animated circular score gauge. */
 export function HealthRing({
-  score, size = 132, stroke = 12, label, className,
-}: { score: number; size?: number; stroke?: number; label?: string; className?: string }) {
+  score, size = 132, stroke = 12, label,
+}: { score: number; size?: number; stroke?: number; label?: string }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const offset = c * (1 - Math.max(0, Math.min(100, score)) / 100);
   const grade = gradeFor(score);
   return (
-    <div className={cn('relative inline-flex items-center justify-center', className)} style={{ width: size, height: size }}>
+    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90" aria-hidden>
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="hsl(var(--muted))" strokeWidth={stroke} />
         <circle
@@ -53,7 +47,7 @@ export function GradeBadge({ score, className }: { score: number; className?: st
   const grade = gradeFor(score);
   return (
     <span
-      className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold tabular-nums whitespace-nowrap', className)}
+      className={cn('chip gap-1.5 text-[11px] font-bold tabular-nums whitespace-nowrap', className)}
       style={{ background: gradeColor(grade, 0.12), color: gradeColor(grade) }}
     >
       <span className="w-1.5 h-1.5 rounded-full" style={{ background: gradeColor(grade) }} />
@@ -65,7 +59,7 @@ export function GradeBadge({ score, className }: { score: number; className?: st
 export function SeverityChip({ severity, className }: { severity: Severity; className?: string }) {
   return (
     <span
-      className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold whitespace-nowrap', className)}
+      className={cn('chip text-[10px] font-bold whitespace-nowrap', className)}
       style={{ background: severityColor(severity, 0.12), color: severityColor(severity) }}
     >
       {SEVERITY_LABELS[severity]}

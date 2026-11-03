@@ -20,7 +20,9 @@ description: How the project health score, risk factors, permit forecast, portfo
 4. `buildDailyBrief(insights)` → plain-text Hebrew brief for copying, downloading or sending.
 
 ## Hooks and UI
-- `usePortfolioIntelligence()` joins `useProjects` + `useTasks` + `useAllStageDates`.
+- `usePortfolioIntelligence()` joins `useProjects` + `useTasks` + `useAllStageDates`. All three are React Query hooks with shared keys (`['projects']`, `['tasks', id|'all']`, `['stage-dates', id|'all']`), so every screen reuses one request per table. After a write, invalidate the key prefix (`PROJECTS_KEY` / `TASKS_KEY` / `STAGE_DATES_KEY`); don't add window events.
+- `analyzePortfolio` indexes tasks and stage dates by project once and groups rows by quarter/phase in one pass. Keep it O(n): no `.find`/`.filter` over all rows inside per-project loops.
+- Pipeline buckets have stable `key`s (`reached`, `within_1y`, …). Look them up by key, never by label or index.
 - `/command-center` → `src/pages/CommandCenterPage.tsx`. Dashboard teaser → `IntelligenceStrip`. Project page → `ProjectHealthCard`.
 
 ## Extending

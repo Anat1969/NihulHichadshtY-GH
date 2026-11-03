@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useProjects, ProjectWithAddresses } from '@/hooks/useProjects';
 import { getStageName, StageId, STAGES } from '@/types/project';
@@ -9,25 +9,20 @@ import {
   ExternalLink, User, Landmark, FileText, FileSpreadsheet, Download, Sparkles, BarChart3, MapPin,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { exportDashboardPdf, exportDashboardExcel } from '@/lib/exportUtils';
-import { exportOfficialPinuiBinuiStatus } from '@/lib/officialExport';
 import { DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import Layout from '@/components/Layout';
-import SystemSummaryDialog from '@/components/SystemSummaryDialog';
-import FormalDocumentEditor from '@/components/FormalDocumentEditor';
 import TamaDashboardCard from '@/components/TamaDashboardCard';
 import IntelligenceStrip from '@/components/intelligence/IntelligenceStrip';
-import ImportExcelDatesDialog from '@/components/ImportExcelDatesDialog';
 import type { MeetingDocumentDraft } from '@/lib/formalDocumentExport';
+import { formatShekels } from '@/lib/formatUtils';
+import { VALUE_PER_UNIT } from '@/lib/intelligence/engine';
 
-function formatRevenue(amount: number): string {
-  if (amount >= 1_000_000_000) return `₪ ${(amount / 1_000_000_000).toFixed(2)}B`;
-  if (amount >= 1_000_000) return `₪ ${(amount / 1_000_000).toFixed(1)}M`;
-  if (amount >= 1_000) return `₪ ${(amount / 1_000).toFixed(0)}K`;
-  return `₪ ${amount.toLocaleString()}`;
-}
+// Heavy document/export code (docx, jspdf, xlsx) loads only when the user asks for it.
+const SystemSummaryDialog = lazy(() => import('@/components/SystemSummaryDialog'));
+const FormalDocumentEditor = lazy(() => import('@/components/FormalDocumentEditor'));
+const ImportExcelDatesDialog = lazy(() => import('@/components/ImportExcelDatesDialog'));
 
 export default function Dashboard() {
   const { projects, loading } = useProjects();
@@ -82,7 +77,7 @@ export default function Dashboard() {
       p.management_status === 'stuck' || p.management_status === 'on_hold' || p.management_status === 'תקוע' || p.management_status === 'מושהה'
     ).length;
 
-      const totalRevenue = totalPlanned * 25000;
+      const totalRevenue = totalPlanned * VALUE_PER_UNIT;
 
       return {
       totalProjects, totalExisting, totalPlanned, avgMultiplier, totalRevenue,
@@ -200,7 +195,7 @@ export default function Dashboard() {
             <h1 className="text-lg md:text-xl">ניהול ההתחדשות העירונית – אשדוד</h1>
             <p className="caption mt-1">מערכת חכמה לבקרה על פרויקטי פינוי־בינוי · {kpis.totalProjects} פרויקטים · {formatDate(new Date())}</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setImportExcelOpen(true)} className="gap-1.5">
               <FileSpreadsheet className="h-4 w-4" />
               ייבוא תאריכים
@@ -215,14 +210,14 @@ export default function Dashboard() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => exportDashboardPdf(projects, kpis)} className="gap-2">
+                <DropdownMenuItem onClick={() => import('@/lib/exportUtils').then(m => m.exportDashboardPdf(projects, kpis))} className="gap-2">
                   <FileText className="h-4 w-4" />ייצוא PDF
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportDashboardExcel(projects)} className="gap-2">
+                <DropdownMenuItem onClick={() => import('@/lib/exportUtils').then(m => m.exportDashboardExcel(projects))} className="gap-2">
                   <FileSpreadsheet className="h-4 w-4" />ייצוא Excel
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => exportOfficialPinuiBinuiStatus(projects)} className="gap-2">
+                <DropdownMenuItem onClick={() => import('@/lib/officialExport').then(m => m.exportOfficialPinuiBinuiStatus(projects))} className="gap-2">
                   <FileSpreadsheet className="h-4 w-4" />ייצוא אקסל רשמי – סטטוס פינוי בינוי
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -240,7 +235,7 @@ export default function Dashboard() {
             <KpiCard icon={Home} label="דירות קיימות" value={kpis.totalExisting.toLocaleString()} />
             <KpiCard icon={Target} label="דירות מתוכננות" value={kpis.totalPlanned.toLocaleString()} />
             <KpiCard icon={TrendingUp} label="מכפיל ממוצע" value={`×${kpis.avgMultiplier}`} accent />
-            <KpiCard icon={Landmark} label="פוטנציאל צפוי מהיתרים" value={formatRevenue(kpis.totalRevenue)} accent subtitle="מחושב לפי 25,000 ₪ ליח״ד, בכפוף לאישור היתרים" />
+            <KpiCard icon={Landmark} label="פוטנציאל צפוי מהיתרים" value={formatShekels(kpis.totalRevenue)} accent subtitle="מחושב לפי 25,000 ₪ ליח״ד, בכפוף לאישור היתרים" />
           </div>
         </section>
 
@@ -440,7 +435,7 @@ export default function Dashboard() {
             </h2>
             <div className="premium-card divide-y divide-border/40">
               {topByPotential.map((p, idx) => {
-                const potential = (p.units_out || 0) * 25000;
+                const potential = (p.units_out || 0) * VALUE_PER_UNIT;
                 return (
                   <Link key={p.id} to={`/project/${p.id}`} className="block hover:bg-muted/30 transition-colors">
                     <div className="p-4 flex items-center gap-4">
@@ -459,7 +454,7 @@ export default function Dashboard() {
                         </div>
                       </div>
                       <div className="text-left shrink-0">
-                        <p className="text-[18px] font-extrabold text-emerald-600 leading-none tracking-tight">{formatRevenue(potential)}</p>
+                        <p className="text-[18px] font-extrabold text-emerald-600 leading-none tracking-tight">{formatShekels(potential)}</p>
                         <p className="text-[10px] text-muted-foreground/70 mt-1">פוטנציאל מהיתרים</p>
                       </div>
                     </div>
@@ -482,7 +477,8 @@ export default function Dashboard() {
         )}
       </div>
 
-      <SystemSummaryDialog
+      <Suspense fallback={null}>
+      {systemSummaryOpen && <SystemSummaryDialog
         open={systemSummaryOpen}
         onOpenChange={setSystemSummaryOpen}
         projects={projects}
@@ -490,16 +486,17 @@ export default function Dashboard() {
           setFormalDocOverride(draft);
           setFormalDocOpen(true);
         }}
-      />
+      />}
 
-      <FormalDocumentEditor
+      {formalDocOpen && <FormalDocumentEditor
         open={formalDocOpen}
         onOpenChange={setFormalDocOpen}
         project={{ project_name: 'התחדשות עירונית – אשדוד' }}
         draftOverride={formalDocOverride}
-      />
+      />}
 
-      <ImportExcelDatesDialog open={importExcelOpen} onOpenChange={setImportExcelOpen} />
+      {importExcelOpen && <ImportExcelDatesDialog open={importExcelOpen} onOpenChange={setImportExcelOpen} />}
+      </Suspense>
     </Layout>
   );
 }

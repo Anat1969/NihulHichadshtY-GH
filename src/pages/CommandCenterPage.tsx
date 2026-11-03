@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Radar, Copy, Download, Sparkles, AlertTriangle, Zap, Building2, TrendingUp,
-  Landmark, ShieldAlert, Search, ArrowUpDown, Loader2, Grid3x3, CalendarClock, X,
+  Landmark, ShieldAlert, Search, ArrowUpDown, Grid3x3, CalendarClock, X,
 } from 'lucide-react';
 import { Bar, BarChart, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import Layout from '@/components/Layout';
@@ -10,16 +10,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { usePortfolioIntelligence } from '@/hooks/usePortfolioIntelligence';
-import { GRADE_META, PermitForecast, stageOf, type Grade } from '@/lib/intelligence/engine';
+import { GRADE_META, GRADES, buildDailyBrief, stageOf, type Grade, type PermitForecast } from '@/lib/intelligence/engine';
+import { formatShekels } from '@/lib/formatUtils';
+import PageLoader from '@/components/PageLoader';
 import { getStageName, PHASE_LABELS } from '@/types/project';
 import { formatDate } from '@/lib/dateUtils';
 import { GradeBadge, HealthRing, ScoreBar, SeverityChip, gradeColor, scoreColor, severityColor } from '@/components/intelligence/primitives';
-
-function formatMoney(n: number) {
-  if (n >= 1e9) return `₪${(n / 1e9).toFixed(2)}B`;
-  if (n >= 1e6) return `₪${(n / 1e6).toFixed(1)}M`;
-  return `₪${n.toLocaleString('he-IL')}`;
-}
 
 type SortKey = 'score' | 'name' | 'forecast' | 'units';
 
@@ -28,12 +24,14 @@ function forecastSortValue(f: PermitForecast) {
 }
 
 export default function CommandCenterPage() {
-  const { insights, brief, loading } = usePortfolioIntelligence();
+  const { insights, loading } = usePortfolioIntelligence();
+  const brief = useMemo(() => buildDailyBrief(insights), [insights]);
   const { toast } = useToast();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [gradeFilter, setGradeFilter] = useState<Grade | null>(null);
-  const [cellFilter, setCellFilter] = useState<{ quarter: string; phase: string; ids: string[] } | null>(null);
+  // One id-based filter, set from a heatmap cell or an alert; `key` marks the active source.
+  const [idFilter, setIdFilter] = useState<{ key: string; label: string; ids: string[] } | null>(null);
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'score', dir: 1 });
 
   const rows = useMemo(() => {
@@ -41,20 +39,16 @@ export default function CommandCenterPage() {
     let list = insights.projects;
     if (q) list = list.filter(r => r.project.project_name.includes(q) || (r.project.quarter || '').includes(q));
     if (gradeFilter) list = list.filter(r => r.health.grade === gradeFilter);
-    if (cellFilter) list = list.filter(r => cellFilter.ids.includes(r.project.id));
-    const val = (r: typeof list[number]) => {
-      switch (sort.key) {
-        case 'name': return r.project.project_name;
-        case 'forecast': return forecastSortValue(r.forecast);
-        case 'units': return r.project.units_out || 0;
-        default: return r.health.score;
-      }
-    };
-    return [...list].sort((a, b) => {
-      const va = val(a), vb = val(b);
-      return (typeof va === 'string' ? va.localeCompare(vb as string, 'he') : (va as number) - (vb as number)) * sort.dir;
-    });
-  }, [insights.projects, query, gradeFilter, cellFilter, sort]);
+    if (idFilter) {
+      const ids = new Set(idFilter.ids);
+      list = list.filter(r => ids.has(r.project.id));
+    }
+    const num = (r: typeof list[number]) =>
+      sort.key === 'forecast' ? forecastSortValue(r.forecast) : sort.key === 'units' ? r.project.units_out || 0 : r.health.score;
+    return [...list].sort((a, b) =>
+      (sort.key === 'name' ? a.project.project_name.localeCompare(b.project.project_name, 'he') : num(a) - num(b)) * sort.dir,
+    );
+  }, [insights.projects, query, gradeFilter, idFilter, sort]);
 
   const toggleSort = (key: SortKey) => setSort(s => ({ key, dir: s.key === key ? (s.dir === 1 ? -1 : 1) : 1 }));
 
@@ -80,24 +74,21 @@ export default function CommandCenterPage() {
   if (loading) {
     return (
       <Layout>
-        <div className="flex flex-col items-center justify-center h-72 gap-3 text-muted-foreground">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="text-[13px]">מנתח את תיק הפרויקטים…</span>
-        </div>
+        <PageLoader message="מנתח את תיק הפרויקטים…" />
       </Layout>
     );
   }
 
   const { totals, gradeCounts, heatmap } = insights;
-  const next12 = insights.permitPipeline[1];
+  const next12 = insights.permitPipeline.find(b => b.key === 'within_1y')!;
 
   return (
     <Layout>
       <div className="space-y-6">
         {/* ═══ Hero ═══ */}
-        <section className="relative overflow-hidden rounded-3xl p-6 md:p-8 text-white" style={{ background: 'linear-gradient(135deg, hsl(202 72% 22%) 0%, hsl(202 72% 34%) 55%, hsl(190 70% 38%) 100%)' }}>
-          <div aria-hidden className="absolute -top-24 -left-24 w-72 h-72 rounded-full opacity-25" style={{ background: 'radial-gradient(circle, hsl(30 93% 60%), transparent 70%)' }} />
-          <div aria-hidden className="absolute -bottom-32 left-1/3 w-96 h-96 rounded-full opacity-20" style={{ background: 'radial-gradient(circle, hsl(100 65% 55%), transparent 70%)' }} />
+        <section className="relative overflow-hidden rounded-3xl p-6 md:p-8 text-white" style={{ background: 'linear-gradient(135deg, hsl(var(--hero-from)) 0%, hsl(var(--hero-via)) 55%, hsl(var(--hero-to)) 100%)' }}>
+          <div aria-hidden className="absolute -top-24 -left-24 w-72 h-72 rounded-full opacity-25" style={{ background: 'radial-gradient(circle, hsl(var(--accent)), transparent 70%)' }} />
+          <div aria-hidden className="absolute -bottom-32 left-1/3 w-96 h-96 rounded-full opacity-20" style={{ background: 'radial-gradient(circle, hsl(var(--secondary)), transparent 70%)' }} />
           <div className="relative grid gap-6 lg:grid-cols-[1fr_auto] items-center">
             <div className="space-y-3">
               <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[12px] font-semibold backdrop-blur">
@@ -108,7 +99,7 @@ export default function CommandCenterPage() {
                 ניתוח בזמן אמת של {totals.projects} פרויקטים: ציון בריאות לכל פרויקט, חיזוי מועד היתר, זיהוי חסמים מערכתיים ותור פעולות מתועדף לפי השפעה.
               </p>
               <div className="flex flex-wrap gap-2 pt-1">
-                <Button size="sm" onClick={copyBrief} className="bg-white text-[hsl(202_72%_25%)] hover:bg-white/90 rounded-xl gap-1.5 font-bold"><Copy className="h-4 w-4" />העתק תדריך יומי</Button>
+                <Button size="sm" onClick={copyBrief} className="bg-white text-[hsl(var(--hero-from))] hover:bg-white/90 rounded-xl gap-1.5 font-bold"><Copy className="h-4 w-4" />העתק תדריך יומי</Button>
                 <Button size="sm" variant="ghost" onClick={downloadBrief} className="text-white hover:bg-white/10 rounded-xl gap-1.5 border border-white/25"><Download className="h-4 w-4" />הורד</Button>
                 <Button size="sm" variant="ghost" onClick={() => window.dispatchEvent(new CustomEvent('open-yohan-ai', { detail: { action: 'summary' } }))} className="text-white hover:bg-white/10 rounded-xl gap-1.5 border border-white/25"><Sparkles className="h-4 w-4" />שאל את יוחאן</Button>
               </div>
@@ -116,7 +107,7 @@ export default function CommandCenterPage() {
             <div className="flex items-center gap-5 justify-center rounded-2xl bg-white/95 dark:bg-card p-4 text-foreground shadow-xl">
               <HealthRing score={insights.avgHealth} size={148} label="בריאות התיק" />
               <div className="space-y-1.5">
-                {(['A', 'B', 'C', 'D'] as Grade[]).map(g => (
+                {GRADES.map(g => (
                   <button
                     key={g}
                     onClick={() => setGradeFilter(f => (f === g ? null : g))}
@@ -140,7 +131,7 @@ export default function CommandCenterPage() {
             { icon: Building2, label: 'יח"ד מתוכננות', value: totals.unitsOut.toLocaleString('he-IL'), sub: `מתוך ${totals.unitsIn.toLocaleString('he-IL')} קיימות` },
             { icon: CalendarClock, label: 'צפי היתרים – 12 חודשים', value: next12.units.toLocaleString('he-IL'), sub: `${next12.projects} פרויקטים` },
             { icon: ShieldAlert, label: 'יח"ד בסיכון קריטי', value: totals.unitsAtRisk.toLocaleString('he-IL'), sub: `${gradeCounts.D} פרויקטים`, danger: totals.unitsAtRisk > 0 },
-            { icon: Landmark, label: 'פוטנציאל היטלים', value: formatMoney(totals.value), sub: 'הערכה לפי יח"ד מתוכננות' },
+            { icon: Landmark, label: 'פוטנציאל היטלים', value: formatShekels(totals.value), sub: 'הערכה לפי יח"ד מתוכננות' },
           ].map(k => (
             <div key={k.label} className="kpi-card premium-card p-4">
               <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
@@ -200,7 +191,7 @@ export default function CommandCenterPage() {
                     <p className="text-[12px] text-muted-foreground mt-0.5">{al.detail}</p>
                     <button
                       className="text-[11px] text-primary font-semibold mt-1 hover:underline"
-                      onClick={() => { setCellFilter({ quarter: al.title, phase: '', ids: al.projectIds }); document.getElementById('cc-table')?.scrollIntoView({ behavior: 'smooth' }); }}
+                      onClick={() => { setIdFilter({ key: al.key, label: al.title, ids: al.projectIds }); document.getElementById('cc-table')?.scrollIntoView({ behavior: 'smooth' }); }}
                     >
                       הצג {al.projectIds.length} פרויקטים ←
                     </button>
@@ -228,17 +219,19 @@ export default function CommandCenterPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {heatmap.quarters.map(q => (
+                  {heatmap.quarters.map((q, qi) => (
                     <tr key={q}>
                       <td className="text-[12px] font-bold whitespace-nowrap pl-2">{q === '—' ? 'לא מוגדר' : `רובע ${q}`}</td>
-                      {heatmap.phases.map(ph => {
-                        const cell = heatmap.cells.find(c => c.quarter === q && c.phase === ph)!;
-                        const active = cellFilter?.quarter === q && cellFilter?.phase === ph;
+                      {heatmap.phases.map((ph, pi) => {
+                        // Cells are emitted quarter-major, so index directly.
+                        const cell = heatmap.cells[qi * heatmap.phases.length + pi];
+                        const cellKey = `cell:${q}|${ph}`;
+                        const active = idFilter?.key === cellKey;
                         return (
                           <td key={ph} className="p-0">
                             <button
                               disabled={!cell.count}
-                              onClick={() => setCellFilter(active ? null : { quarter: q, phase: ph, ids: cell.projectIds })}
+                              onClick={() => setIdFilter(active ? null : { key: cellKey, label: `${q === '—' ? 'לא מוגדר' : `רובע ${q}`} · ${PHASE_LABELS[ph]}`, ids: cell.projectIds })}
                               className="w-full h-11 rounded-lg text-[13px] font-black tabular-nums transition-transform hover:scale-105 disabled:hover:scale-100 disabled:cursor-default"
                               style={{
                                 background: cell.count ? scoreColor(cell.avgHealth, 0.15 + Math.min(cell.count, 6) * 0.1) : 'hsl(var(--muted) / .5)',
@@ -260,7 +253,7 @@ export default function CommandCenterPage() {
             {/* Legend: colour = average health grade; the number = project count. */}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3 text-[11px] text-muted-foreground" aria-label="מקרא מפת החום">
               <span>המספר = כמות פרויקטים · הצבע = בריאות ממוצעת:</span>
-              {(['A', 'B', 'C', 'D'] as Grade[]).map(g => (
+              {GRADES.map(g => (
                 <span key={g} className="inline-flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-[4px]" style={{ background: gradeColor(g, 0.55) }} />
                   {GRADE_META[g].label}
@@ -316,9 +309,10 @@ export default function CommandCenterPage() {
           <header className="flex flex-wrap items-center gap-3 mb-4">
             <h2 className="text-[15px] font-bold">דירוג בריאות פרויקטים</h2>
             <span className="text-[12px] text-muted-foreground">{rows.length} מתוך {insights.projects.length}</span>
-            {(gradeFilter || cellFilter) && (
-              <button onClick={() => { setGradeFilter(null); setCellFilter(null); }} className="chip chip-primary gap-1 text-[11px]">
-                <X className="h-3 w-3" />נקה סינון
+            {(gradeFilter || idFilter) && (
+              <button onClick={() => { setGradeFilter(null); setIdFilter(null); }} className="chip chip-primary gap-1 text-[11px]" title="נקה סינון">
+                <X className="h-3 w-3" />
+                {[gradeFilter && GRADE_META[gradeFilter].label, idFilter?.label].filter(Boolean).join(' · ')}
               </button>
             )}
             <div className="relative mr-auto w-full sm:w-64">

@@ -4,7 +4,7 @@ import {
   Radar, Copy, Download, Sparkles, AlertTriangle, Zap, Building2, TrendingUp,
   Landmark, ShieldAlert, Search, ArrowUpDown, Loader2, Grid3x3, CalendarClock, X,
 } from 'lucide-react';
-import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -143,8 +143,10 @@ export default function CommandCenterPage() {
             { icon: Landmark, label: 'פוטנציאל היטלים', value: formatMoney(totals.value), sub: 'הערכה לפי יח"ד מתוכננות' },
           ].map(k => (
             <div key={k.label} className="kpi-card premium-card p-4">
-              <div className="flex items-center gap-2 text-[12px] text-muted-foreground"><k.icon className="h-4 w-4" />{k.label}</div>
-              <div className="text-2xl font-black tabular-nums mt-1" style={k.danger ? { color: 'hsl(var(--status-red))' } : undefined}>{k.value}</div>
+              <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                <k.icon className="h-4 w-4" style={k.danger ? { color: 'hsl(var(--status-red))' } : undefined} />{k.label}
+              </div>
+              <div className="text-2xl font-black mt-1">{k.value}</div>
               <div className="text-[11px] text-muted-foreground">{k.sub}</div>
             </div>
           ))}
@@ -255,6 +257,16 @@ export default function CommandCenterPage() {
                 </tbody>
               </table>
             </div>
+            {/* Legend: colour = average health grade; the number = project count. */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3 text-[11px] text-muted-foreground" aria-label="מקרא מפת החום">
+              <span>המספר = כמות פרויקטים · הצבע = בריאות ממוצעת:</span>
+              {(['A', 'B', 'C', 'D'] as Grade[]).map(g => (
+                <span key={g} className="inline-flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-[4px]" style={{ background: gradeColor(g, 0.55) }} />
+                  {GRADE_META[g].label}
+                </span>
+              ))}
+            </div>
           </section>
 
           {/* ═══ Permit pipeline ═══ */}
@@ -265,7 +277,7 @@ export default function CommandCenterPage() {
             </header>
             <div className="h-[220px]" dir="ltr">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={insights.permitPipeline} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <BarChart data={insights.permitPipeline} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
                   <XAxis dataKey="label" reversed tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
                   <YAxis orientation="right" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} width={44} />
                   <Tooltip
@@ -273,10 +285,17 @@ export default function CommandCenterPage() {
                     contentStyle={{ borderRadius: 12, border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', direction: 'rtl', fontSize: 12 }}
                     formatter={(v: number, _n, item) => [`${v.toLocaleString('he-IL')} יח"ד · ${item.payload.projects} פרויקטים`, '']}
                   />
-                  <Bar dataKey="units" radius={[8, 8, 0, 0]}>
+                  {/* Ordered buckets → one-hue ordinal ramp (not status colours). */}
+                  <Bar dataKey="units" radius={[4, 4, 0, 0]} maxBarSize={56}>
                     {insights.permitPipeline.map((_, i) => (
-                      <Cell key={i} fill={['hsl(var(--status-green))', 'hsl(var(--status-blue))', 'hsl(202 60% 60%)', 'hsl(var(--status-yellow))', 'hsl(var(--muted-foreground) / .5)'][i]} />
+                      <Cell key={i} fill={`hsl(var(--pipe-${i + 1}))`} />
                     ))}
+                    <LabelList
+                      dataKey="units"
+                      position="top"
+                      formatter={(v: number) => (v ? v.toLocaleString('he-IL') : '')}
+                      style={{ fontSize: 11, fontWeight: 700, fill: 'hsl(var(--foreground))' }}
+                    />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -284,7 +303,7 @@ export default function CommandCenterPage() {
             <div className="grid grid-cols-5 gap-1 mt-3">
               {insights.phaseFunnel.map(f => (
                 <div key={f.phase} className="text-center rounded-lg bg-muted/50 py-2">
-                  <div className="text-[16px] font-black tabular-nums">{f.projects}</div>
+                  <div className="text-[16px] font-black">{f.projects}</div>
                   <div className="text-[10px] text-muted-foreground leading-tight">{f.label}</div>
                 </div>
               ))}

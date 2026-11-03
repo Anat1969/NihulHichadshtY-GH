@@ -32,9 +32,8 @@ jobs:
           GITHUB_PAGES: "true"
       # SPA fallback: deep links like /project/123 load the app instead of a 404.
       - run: cp dist/index.html dist/404.html
+      # Pages must be enabled once by a repo admin: Settings → Pages → Source: GitHub Actions.
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

@@ -48,6 +48,14 @@
     --status-green: 100 65% 45%;        /* Ashdod green */
     --status-blue: 202 72% 48%;
 
+    /* Ordinal ramp (brand blue), validated with dataviz validate_palette.js --ordinal.
+       --pipe-1 = nearest / most mature bucket (strongest), --pipe-5 = furthest. */
+    --pipe-1: 202 72% 24%;
+    --pipe-2: 202 72% 33%;
+    --pipe-3: 202 72% 42%;
+    --pipe-4: 202 72% 52%;
+    --pipe-5: 202 72% 64%;
+
     /* ─── Sidebar ─── */
     --sidebar-background: 202 65% 16%;
     --sidebar-foreground: 210 15% 92%;
@@ -74,6 +82,12 @@
   }
 
   .dark {
+    /* Dark: strongest step is the lightest, validated vs card surface #151c23. */
+    --pipe-1: 202 72% 72%;
+    --pipe-2: 202 72% 62%;
+    --pipe-3: 202 72% 52%;
+    --pipe-4: 202 72% 42%;
+    --pipe-5: 202 72% 33%;
     --background: 210 30% 7%;
     --foreground: 210 14% 92%;
     --surface: 210 25% 11%;

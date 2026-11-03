@@ -42,7 +42,7 @@ export function HealthRing({
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center" role="img" aria-label={`ציון בריאות ${score} מתוך 100`}>
-        <span className="font-black tabular-nums leading-none" style={{ fontSize: size * 0.28, color: gradeColor(grade) }}>{score}</span>
+        <span className="font-black leading-none text-foreground" style={{ fontSize: size * 0.28 }}>{score}</span>
         <span className="text-[11px] text-muted-foreground mt-1 font-medium">{label ?? GRADE_META[grade].label}</span>
       </div>
     </div>
@@ -79,7 +79,7 @@ export function ScoreBar({ score }: { score: number }) {
       <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
         <div className="h-full rounded-full" style={{ width: `${score}%`, background: scoreColor(score), transition: 'width .8s ease-out' }} />
       </div>
-      <span className="text-[12px] font-bold tabular-nums w-7 text-left" style={{ color: scoreColor(score) }}>{score}</span>
+      <span className="text-[12px] font-bold tabular-nums w-7 text-left text-foreground">{score}</span>
     </div>
   );
 }

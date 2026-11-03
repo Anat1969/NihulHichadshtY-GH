@@ -56,7 +56,7 @@ export default function ProjectHealthCard({ project }: { project: IntelProject }
             <div className="text-[20px] font-black" style={{ color: 'hsl(var(--status-green))' }}>התקבל היתר</div>
           ) : (
             <>
-              <div className="text-[22px] font-black tabular-nums">{formatDate(forecast.expectedDate)}</div>
+              <div className="text-[22px] font-black">{formatDate(forecast.expectedDate)}</div>
               <div className="text-[12px] text-muted-foreground">{forecast.remainingStages} שלבים · ~{Math.round(forecast.expectedDays / 30)} חודשים</div>
               <div className="text-[11px] text-muted-foreground">{CONFIDENCE_LABELS[forecast.confidence]}{forecast.slowdown > 1 ? ` · מקדם עיכוב ×${forecast.slowdown}` : ''}</div>
             </>

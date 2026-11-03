@@ -35,7 +35,7 @@ class Boundary extends Component<{ children: ReactNode }, State> {
             <button onClick={() => (isChunkLoadError(this.state.error!) ? window.location.reload() : this.setState({ error: null }))} className="inline-flex items-center gap-1.5 rounded-xl bg-primary text-primary-foreground px-4 py-2 text-[13px] font-bold">
               <RotateCcw className="h-4 w-4" />נסה שוב
             </button>
-            <a href="/" className="inline-flex items-center rounded-xl border px-4 py-2 text-[13px]">לדשבורד</a>
+            <a href={import.meta.env.BASE_URL} className="inline-flex items-center rounded-xl border px-4 py-2 text-[13px]">לדשבורד</a>
           </div>
         </div>
       </div>

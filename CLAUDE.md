@@ -2,7 +2,7 @@
 
 A Hebrew RTL web app for managing Ashdod's pinui-binui (urban renewal) projects, from feasibility to occupancy. Imported once from a Lovable prototype; **this repo is now the only source of truth: never sync or push back to Lovable.**
 
-**Hosting:** Vercel (`vercel.json`: SPA rewrites, immutable asset caching, security headers). The build reads the Supabase publishable config from `.env`.
+**Hosting:** GitHub Pages at https://anat1969.github.io/NihulHichadshtY-GH/ (`.github/workflows/pages.yml` builds and publishes on every push to `main`, with `GITHUB_PAGES=true` so the base path is `/NihulHichadshtY-GH/`, and copies `404.html` as an SPA fallback). `vercel.json` stays as an alternative host. The build reads the Supabase publishable config from `.env`. Never hard-code root paths: use `import.meta.env.BASE_URL` and router links.
 
 **Stack:** Vite + React 18 + TypeScript + Tailwind + shadcn/ui · Supabase (Postgres + edge functions) · Recharts · Vitest.
 

@@ -17,6 +17,6 @@ npm run screenshots
 ```
 
 ## פריסה
-Vercel, לפי ההגדרות ב-`vercel.json`. הנתונים מגיעים מ-Supabase, וההגדרות הציבוריות שלו נמצאות ב-`.env`.
+GitHub Pages: https://anat1969.github.io/NihulHichadshtY-GH/ . כל דחיפה ל-`main` בונה ומפרסמת אוטומטית (`.github/workflows/pages.yml`). ההגדרות ל-Vercel נמצאות ב-`vercel.json`, כאפשרות חלופית. הנתונים מגיעים מ-Supabase, וההגדרות הציבוריות שלו נמצאות ב-`.env`.
 
 הנחיות לעבודה עם Claude Code: `CLAUDE.md` ו-`.claude/skills/`.

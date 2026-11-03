@@ -3,7 +3,11 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
 // https://vitejs.dev/config/
+// GitHub Pages serves the app from /<repo>/; Vercel and local dev serve it from /.
+const base = process.env.GITHUB_PAGES ? "/NihulHichadshtY-GH/" : "/";
+
 export default defineConfig(() => ({
+  base,
   server: {
     host: "::",
     port: 8080,
